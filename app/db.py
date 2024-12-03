@@ -6,29 +6,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Indexing Component MongoDB Configuration
-INDEX_DB_URI = os.getenv("INDEX_DB_URI", "mongodb://localhost:27017/")
-INDEX_DATABASE_NAME = os.getenv("INDEX_DATABASE_NAME", "search_engine")
+INDEX_DB_URI = os.getenv("INDEX_DB_URI")
+INDEX_DATABASE_NAME = os.getenv("INDEX_DATABASE_NAME")
 
 # Document Data Store MongoDB Configuration
-DOC_STORE_DB_URI = os.getenv("DOC_STORE_DB_URI", "mongodb://document_store_host:27017/")
-DOC_STORE_DATABASE_NAME = os.getenv("DOC_STORE_DATABASE_NAME", "transformed_documents")
+DOC_STORE_DB_URI = os.getenv("DOC_STORE_DB_URI")
+DOC_STORE_DATABASE_NAME = os.getenv("DOC_STORE_DATABASE_NAME")
 
 # Global Variables for MongoDB Clients and Databases
 index_client = None
 index_db = None
 forward_index_col = None
 inverted_index_col = None
-metadata_store_col = None
 average_length_col = None
 
 doc_store_client = None
 doc_store_db = None
-transformed_docs_col = None  # Collection in Document Data Store
+transformed_docs_col = None
 
 
 def connect_to_databases():
     global index_client, index_db
-    global forward_index_col, inverted_index_col, metadata_store_col, average_length_col
+    global forward_index_col, inverted_index_col, average_length_col
     global doc_store_client, doc_store_db, transformed_docs_col
 
     # Connect to Indexing Component MongoDB
@@ -36,8 +35,7 @@ def connect_to_databases():
     index_db = index_client[INDEX_DATABASE_NAME]
     forward_index_col = index_db["forward_index"]
     inverted_index_col = index_db["inverted_index"]
-    metadata_store_col = index_db["metadata_store"]
-    average_length_col = index_db["average_document_length"]
+    average_length_col = index_db["avg_doc_length"]
 
     # Connect to Document Data Store MongoDB
     doc_store_client = MongoClient(DOC_STORE_DB_URI)
