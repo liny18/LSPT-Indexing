@@ -8,7 +8,7 @@ from app.services import (
     delete_document_from_index,
     search_documents,
     get_document_metadata,
-    get_average_document_length,
+    get_total_doc_statistics,
 )
 from datetime import datetime
 
@@ -58,7 +58,7 @@ def metadata(document_id: str):
     return metadata
 
 
-@router.get("/average-document-length")
-def average_length():
-    avg_length = get_average_document_length()
-    return {"average_length": avg_length}
+@router.get("/total-doc-statistics")
+def get_total_doc_statistics():
+    stats = get_total_doc_statistics()
+    return stats
