@@ -72,7 +72,7 @@ class Database:
                 DOC_STORE_DB_URI, serverSelectionTimeoutMS=5000
             )
             self.doc_store_db = self.doc_store_client[DOC_STORE_DATABASE_NAME]
-            self.transformed_docs_col = self.doc_store_db["transformed_documents"]
+            self.transformed_docs_col = self.doc_store_db["TRANSFORMED"]
             # Force connection by pinging the server
             self.doc_store_client.admin.command("ping")
             logger.info("Successfully connected to the Document Data Store Database.")

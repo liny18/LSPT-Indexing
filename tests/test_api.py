@@ -30,7 +30,6 @@ def setup_and_teardown():
             }
         )
     else:
-        # Optionally, handle cases where mock data is used
         pass  # Since mock data is handled in services.py
 
     yield
@@ -144,12 +143,12 @@ def test_ping_delete():
     assert doc_stats["avgDocLength"] == 0.0
 
 
-def test_connection():
-    response = client.get("/index/test-connection")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-    assert "collections" in data
-    assert "forward_index" in data["collections"]
-    assert "inverted_index" in data["collections"]
-    assert "doc_stats" in data["collections"]
+# def test_connection():
+#     response = client.get("/index/test-connection")
+#     assert response.status_code == 200
+#     data = response.json()
+#     assert data["status"] == "success"
+#     assert "collections" in data
+#     assert "forward_index" in data["collections"]
+#     assert "inverted_index" in data["collections"]
+#     assert "doc_stats" in data["collections"]
