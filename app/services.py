@@ -6,6 +6,7 @@ from app.db import (
     average_length_col,
     transformed_docs_col,
 )
+
 from app.utils import extract_terms
 from pymongo import UpdateOne
 from datetime import datetime
@@ -139,9 +140,16 @@ def get_document_metadata(document_id: str):
     }
 
 
-def get_average_document_length():
-    avg = average_length_col.find_one({})
-    return avg["average_length"] if avg else 0.0
+def get_total_doc_statistics():
+    total_docs = metadata_store_col.count_documents({})
+    
+    avg_doc_length_entry = average_length_col.find_one({})
+    avg_doc_length = avg_doc_length_entry["average_length"] if avg_doc_length_entry else 0.0
+
+    return {
+        "avgDocLength": avg_doc_length,
+        "docCount": total_docs
+    }
 
 
 # Helper functions
