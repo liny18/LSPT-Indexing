@@ -1,4 +1,0 @@
-INDEX_DB_URI=mongodb+srv://yuxlin21:<db_password>@cluster0.n5ujb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0 
-INDEX_DATABASE_NAME=index_database  
-DOC_STORE_DB_URI=mongodb://localhost:27017
-DOC_STORE_DATABASE_NAME=document_store
