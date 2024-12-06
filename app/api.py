@@ -1,5 +1,5 @@
 # app/api.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel
 from typing import List, Dict
 from app.services import (
@@ -11,6 +11,7 @@ from app.services import (
     get_total_doc_statistics,
 )
 from datetime import datetime
+import logging
 
 router = APIRouter()
 
@@ -23,45 +24,77 @@ class PingIndexRequest(BaseModel):
 
 
 @router.post("/ping")
-def ping_index(request: PingIndexRequest):
-    operation = request.operation.lower()
-    document_id = request.document_id
+async def ping_index(request: Request, ping_request: PingIndexRequest):
+    operation = ping_request.operation.lower()
+    document_id = ping_request.document_id
 
     try:
         if operation == "add":
-            add_document_to_index(document_id)
+            add_document_to_index(request, document_id)
             op_past = "added"
         elif operation == "update":
-            update_document_in_index(document_id)
+            update_document_in_index(request, document_id)
             op_past = "updated"
         elif operation == "delete":
-            delete_document_from_index(document_id)
+            delete_document_from_index(request, document_id)
             op_past = "deleted"
         else:
             raise HTTPException(status_code=400, detail="Invalid operation type")
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
+        logging.error(f"Error in ping_index: {e}")
         raise HTTPException(status_code=500, detail="Server error")
 
     return {"message": f"Document {op_past} successfully"}
 
 
 @router.get("/search")
-def search_index(terms: List[str], proximity: bool = False, phrase_match: bool = False):
-    results = search_documents(terms, proximity, phrase_match)
-    return {"documents": results}
+async def search_index(
+    request: Request, terms: List[str] = Query(..., description="List of search terms")
+):
+    try:
+        results = search_documents(request, terms)
+        return {"documents": results}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logging.error(f"Error in search_index: {e}")
+        raise HTTPException(status_code=500, detail="Server error")
 
 
 @router.get("/metadata/{document_id}")
-def metadata(document_id: str):
-    metadata = get_document_metadata(document_id)
-    if not metadata:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return metadata
+async def metadata(request: Request, document_id: str):
+    try:
+        metadata = get_document_metadata(request, document_id)
+        if not metadata:
+            raise HTTPException(status_code=404, detail="Document not found")
+        return metadata
+    except Exception as e:
+        logging.error(f"Error in metadata endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Server error")
 
 
 @router.get("/doc-stats")
-def doc_stats():
-    stats = get_total_doc_statistics()
-    return stats
+async def doc_stats(request: Request):
+    try:
+        stats = get_total_doc_statistics(request)
+        return stats
+    except Exception as e:
+        logging.error(f"Error in doc_stats endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Server error")
+
+
+# Test Endpoint to Verify Index DB Connection
+# @router.get("/test-connection")
+# async def test_connection(request: Request):
+#     db = request.app.state.db
+#     try:
+#         # Attempt to list collections in the Indexing Database
+#         collections = db.index_db.list_collection_names()
+#         return {"status": "success", "collections": collections}
+#     except Exception as e:
+#         logging.error(f"Connection Test Failed: {e}")
+#         raise HTTPException(
+#             status_code=500, detail="Failed to connect to Indexing Database"
+#         )
