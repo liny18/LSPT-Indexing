@@ -23,14 +23,12 @@ doc_stats_col = None
 doc_store_client = None
 doc_store_db = None
 transformed_docs_col = None
-metadata_store_col = None
-average_length_col = None
 
 
 def connect_to_databases():
-    global index_client, index_db, average_length_col
+    global index_client, index_db
     global forward_index_col, inverted_index_col, doc_stats_col
-    global doc_store_client, doc_store_db, transformed_docs_col, metadata_store_col
+    global doc_store_client, doc_store_db, transformed_docs_col
 
     # Connect to Indexing Component MongoDB
     index_client = MongoClient(INDEX_DB_URI)
@@ -43,8 +41,7 @@ def connect_to_databases():
     doc_store_client = MongoClient(DOC_STORE_DB_URI)
     doc_store_db = doc_store_client[DOC_STORE_DATABASE_NAME]
     transformed_docs_col = doc_store_db["transformed_documents"]
-    metadata_store_col = doc_store_db["metadata_store"]
-    average_length_col = doc_store_db["average_length"]
+
 
 def close_database_connections():
     if index_client:

@@ -30,10 +30,13 @@ def ping_index(request: PingIndexRequest):
     try:
         if operation == "add":
             add_document_to_index(document_id)
+            op_past = "added"
         elif operation == "update":
             update_document_in_index(document_id)
+            op_past = "updated"
         elif operation == "delete":
             delete_document_from_index(document_id)
+            op_past = "deleted"
         else:
             raise HTTPException(status_code=400, detail="Invalid operation type")
     except ValueError as ve:
@@ -41,7 +44,7 @@ def ping_index(request: PingIndexRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Server error")
 
-    return {"message": f"Document {operation}d successfully"}
+    return {"message": f"Document {op_past} successfully"}
 
 
 @router.get("/search")
@@ -58,7 +61,7 @@ def metadata(document_id: str):
     return metadata
 
 
-@router.get("/total-doc-statistics")
-def get_total_doc_statistics():
+@router.get("/doc-stats")
+def doc_stats():
     stats = get_total_doc_statistics()
     return stats
