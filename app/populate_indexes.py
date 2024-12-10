@@ -132,8 +132,8 @@ def update_statistics(db, document):
 
 def main():
     # MongoDB Configuration
-    MONGO_URI = os.getenv("INDEX_DB_URI", "mongodb://localhost:27017/")
-    INDEX_DB_NAME = os.getenv("INDEX_DATABASE_NAME", "indexing_db")
+    MONGO_URI = os.getenv("INDEX_DB_URI")
+    INDEX_DB_NAME = os.getenv("INDEX_DATABASE_NAME")
 
     # Connect to MongoDB
     client = MongoClient(MONGO_URI)
