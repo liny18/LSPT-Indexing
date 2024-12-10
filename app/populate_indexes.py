@@ -139,9 +139,6 @@ def main():
     client = MongoClient(MONGO_URI)
     db = client[INDEX_DB_NAME]
 
-    # Ensure collections exist and reference the correct variables
-    # These variables should match those defined in the Database class
-    # forward_index_col, inverted_index_col, doc_stats_col
     forward_index_col = db.forward_index
     inverted_index_col = db.inverted_index
     doc_stats_col = db.doc_stats
