@@ -16,24 +16,26 @@ def get_db(request: Request):
 def add_document_to_index(request: Request, document_id: str):
     db = get_db(request)
 
-    # Check if transformed_docs_col is available
+    # Fetch document content and metadata
     if db.transformed_docs_col is not None:
-        # Fetch document content and metadata from the Document Data Store
         try:
-            document_content = fetch_document_content(db, document_id)
-            document_metadata = fetch_document_metadata(db, document_id)
+            document = db.transformed_docs_col.find_one({"document_id": document_id})
+            if not document:
+                raise ValueError("Document not found.")
+            document_content = document.get("content", "")
+            document_metadata = document.get("metadata", {})
         except Exception as e:
-            logger.error(f"Error fetching document from Document Data Store: {e}")
-            raise ValueError("Failed to fetch document from Document Data Store.")
+            logger.error(f"Error fetching document: {e}")
+            raise ValueError("Failed to fetch document.")
     else:
-        # Use mock data
+        # Handle mock data
         document_content = fetch_document_content_mock(document_id)
         document_metadata = fetch_document_metadata_mock(document_id)
-        if document_content is None or document_metadata is None:
+        if not document_content or not document_metadata:
             raise ValueError("Document not found in mock data.")
 
     if db.forward_index_col.find_one({"document_id": document_id}):
-        raise ValueError("Document already exists")
+        raise ValueError("Document already exists.")
 
     terms = extract_terms(document_content)
     logger.info(f"Extracted terms for document {document_id}: {terms}")
@@ -52,7 +54,7 @@ def add_document_to_index(request: Request, document_id: str):
         )
         logger.debug(f"Indexed term '{term}' for document '{document_id}'.")
 
-    # Update forward index with metadata
+    # Update forward index
     db.forward_index_col.insert_one(
         {
             "document_id": document_id,
@@ -63,7 +65,7 @@ def add_document_to_index(request: Request, document_id: str):
     )
     logger.info(f"Added document {document_id} to forward index.")
 
-    # Update doc_stats_col
+    # Update statistics
     doc_stats = db.doc_stats_col.find_one({})
     if doc_stats:
         new_doc_count = doc_stats.get("docCount", 0) + 1
@@ -86,7 +88,7 @@ def add_document_to_index(request: Request, document_id: str):
             f"Updated doc_stats_col: docCount={new_doc_count}, avgDocLength={new_avg_length}"
         )
     else:
-        # Initialize doc_stats_col if not present
+        # Initialize statistics
         db.doc_stats_col.insert_one(
             {
                 "docCount": 1,
@@ -102,7 +104,7 @@ def add_document_to_index(request: Request, document_id: str):
 def update_document_in_index(request: Request, document_id: str):
     db = get_db(request)
     if not db.forward_index_col.find_one({"document_id": document_id}):
-        raise ValueError("Document does not exist")
+        raise ValueError("Document does not exist.")
 
     # Fetch existing document's term count for recalculating average
     existing_doc = db.forward_index_col.find_one({"document_id": document_id})
@@ -120,8 +122,11 @@ def update_document_in_index(request: Request, document_id: str):
 
     doc_stats = db.doc_stats_col.find_one({})
     if doc_stats:
-        total_length = doc_stats.get("avgDocLength", 0.0) * doc_stats.get("docCount", 0)
-        total_length = total_length - existing_total_terms + new_total_terms
+        total_length = (
+            doc_stats.get("avgDocLength", 0.0) * doc_stats.get("docCount", 0)
+            - existing_total_terms
+            + new_total_terms
+        )
         new_avg_length = (
             total_length / doc_stats.get("docCount", 1)
             if doc_stats.get("docCount", 1) > 0
@@ -146,7 +151,7 @@ def delete_document_from_index(
 ):
     db = get_db(request)
     if not db.forward_index_col.find_one({"document_id": document_id}):
-        raise ValueError("Document does not exist")
+        raise ValueError("Document does not exist.")
 
     # Remove from inverted index
     document_terms = db.forward_index_col.find_one({"document_id": document_id})[
@@ -174,18 +179,20 @@ def delete_document_from_index(
     db.forward_index_col.delete_one({"document_id": document_id})
     logger.info(f"Removed document {document_id} from forward index.")
 
+    # Update statistics
     if adjust_stats:
-        # Update doc_stats_col
         doc_stats = db.doc_stats_col.find_one({})
         if doc_stats:
             new_doc_count = doc_stats.get("docCount", 1) - 1
-            if new_doc_count < 0:
-                new_doc_count = 0
-            total_length = (
-                doc_stats.get("avgDocLength", 0.0) * doc_stats.get("docCount", 0)
-                - total_terms
-            )
-            new_avg_length = total_length / new_doc_count if new_doc_count > 0 else 0.0
+            new_doc_count = max(new_doc_count, 0)
+            if new_doc_count > 0:
+                new_total_length = (
+                    doc_stats.get("avgDocLength", 0.0) * doc_stats.get("docCount", 0)
+                    - total_terms
+                )
+                new_avg_length = new_total_length / new_doc_count
+            else:
+                new_avg_length = 0.0
 
             db.doc_stats_col.update_one(
                 {},
@@ -198,48 +205,50 @@ def delete_document_from_index(
                 },
             )
             logger.info(
-                f"Adjusted doc_stats_col: docCount={new_doc_count}, avgDocLength={new_avg_length}"
+                f"Updated doc_stats_col: docCount={new_doc_count}, avgDocLength={new_avg_length}"
             )
+        else:
+            # Initialize statistics if not present
+            db.doc_stats_col.insert_one(
+                {
+                    "docCount": 0,
+                    "avgDocLength": 0.0,
+                    "last_updated": datetime.now(timezone.utc),
+                }
+            )
+            logger.info("Initialized doc_stats_col with zero documents.")
+
     logger.info(f"Deleted document {document_id} successfully.")
 
 
-def search_documents(request: Request, terms: list):
+def search_documents(request: Request, term: str):
     """
-    Simplified search function without proximity and phrase matching.
+    Search for documents containing the specified term.
     """
     db = get_db(request)
-    if not terms:
+    if not term:
         return {}
 
-    # Retrieve documents for each term
-    doc_sets = []
-    for term in terms:
-        entry = db.inverted_index_col.find_one({"term": term})
-        if entry and "documents" in entry:
-            doc_sets.append(set(entry["documents"].keys()))
-        else:
-            doc_sets.append(set())
-
-    # Intersection of document sets
-    if not doc_sets:
-        matching_docs = set()
+    # Retrieve documents for the term
+    entry = db.inverted_index_col.find_one({"term": term})
+    if entry and "documents" in entry:
+        matching_docs = set(entry["documents"].keys())
     else:
-        matching_docs = set.intersection(*doc_sets)
+        matching_docs = set()
 
-    logger.debug(f"Matching documents for terms {terms}: {matching_docs}")
+    logger.debug(f"Matching documents for term '{term}': {matching_docs}")
 
     # Compile results
     result = {}
     for doc in matching_docs:
         forward_entry = db.forward_index_col.find_one({"document_id": doc})
         if forward_entry:
-            result[doc] = {"metadata": forward_entry.get("metadata", {}), "terms": {}}
-            for term in terms:
-                term_data = db.inverted_index_col.find_one({"term": term})[
-                    "documents"
-                ].get(doc)
-                if term_data:
-                    result[doc]["terms"][term] = term_data
+            term_data = entry["documents"].get(doc)
+            if term_data:
+                result[doc] = {
+                    "metadata": forward_entry.get("metadata", {}),
+                    "terms": {term: term_data},
+                }
     logger.debug(f"Search results: {result}")
     return result
 

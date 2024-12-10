@@ -1,7 +1,7 @@
 # app/api.py
 from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import Dict
 from app.services import (
     add_document_to_index,
     update_document_in_index,
@@ -21,6 +21,12 @@ class PingIndexRequest(BaseModel):
     document_id: str
     operation: str  # "add", "update", "delete"
     timestamp: datetime
+
+
+class DocumentMetadata(BaseModel):
+    document_id: str
+    total_terms: int
+    metadata: Dict
 
 
 @router.post("/ping")
@@ -51,10 +57,10 @@ async def ping_index(request: Request, ping_request: PingIndexRequest):
 
 @router.get("/search")
 async def search_index(
-    request: Request, terms: List[str] = Query(..., description="List of search terms")
+    request: Request, term: str = Query(..., description="Search term")
 ):
     try:
-        results = search_documents(request, terms)
+        results = search_documents(request, term)
         return {"documents": results}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))

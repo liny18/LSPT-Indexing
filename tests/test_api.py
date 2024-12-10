@@ -82,9 +82,7 @@ def test_ping_add():
 
 
 def test_search():
-    response = client.get(
-        "/index/search", params=[("terms", "sample"), ("terms", "document")]
-    )
+    response = client.get("/index/search", params={"term": "sample"})
     if response.status_code != 200:
         print("Response Status Code:", response.status_code)
         print("Response JSON:", response.json())
