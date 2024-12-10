@@ -6,6 +6,10 @@ import logging
 import re
 from typing import List, Dict
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
