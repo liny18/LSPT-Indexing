@@ -19,11 +19,17 @@ def add_document_to_index(request: Request, document_id: str):
     # Fetch document content and metadata
     if db.transformed_docs_col is not None:
         try:
-            document = db.transformed_docs_col.find_one({"document_id": document_id})
+            document = db.transformed_docs_col.find_one({"_id": document_id})
             if not document:
                 raise ValueError("Document not found.")
-            document_content = document.get("content", "")
-            document_metadata = document.get("metadata", {})
+            document_content = document.get("text", "")
+            document_metadata = {
+                "url": document.get("url", ""),
+                "type": document.get("type", ""),
+                "text_length": document.get(
+                    "text_length", len(document_content.split())
+                ),
+            }
         except Exception as e:
             logger.error(f"Error fetching document: {e}")
             raise ValueError("Failed to fetch document.")
@@ -60,18 +66,20 @@ def add_document_to_index(request: Request, document_id: str):
             "document_id": document_id,
             "terms": term_info,
             "metadata": document_metadata,
-            "total_terms": len(terms),
+            "total_terms": document_metadata.get("text_length", len(terms)),
         }
     )
     logger.info(f"Added document {document_id} to forward index.")
 
-    # Update statistics
+    # Update statistics using text_length
     doc_stats = db.doc_stats_col.find_one({})
+    text_length = document_metadata.get("text_length", len(terms))
     if doc_stats:
         new_doc_count = doc_stats.get("docCount", 0) + 1
-        new_total_length = doc_stats.get("avgDocLength", 0.0) * doc_stats.get(
-            "docCount", 0
-        ) + len(terms)
+        new_total_length = (
+            doc_stats.get("avgDocLength", 0.0) * doc_stats.get("docCount", 0)
+            + text_length
+        )
         new_avg_length = new_total_length / new_doc_count if new_doc_count > 0 else 0.0
 
         db.doc_stats_col.update_one(
@@ -92,7 +100,7 @@ def add_document_to_index(request: Request, document_id: str):
         db.doc_stats_col.insert_one(
             {
                 "docCount": 1,
-                "avgDocLength": len(terms),
+                "avgDocLength": text_length,
                 "last_updated": datetime.now(timezone.utc),
             }
         )
@@ -179,7 +187,7 @@ def delete_document_from_index(
     db.forward_index_col.delete_one({"document_id": document_id})
     logger.info(f"Removed document {document_id} from forward index.")
 
-    # Update statistics
+    # Update statistics using text_length
     if adjust_stats:
         doc_stats = db.doc_stats_col.find_one({})
         if doc_stats:
@@ -279,15 +287,19 @@ def get_total_doc_statistics(request: Request):
 # Helper functions remain the same
 def fetch_document_content(db, document_id: str) -> str:
     # Fetch from Document Data Store's transformed_documents collection
-    doc = db.transformed_docs_col.find_one({"document_id": document_id})
+    doc = db.transformed_docs_col.find_one({"_id": document_id})
     if not doc:
         raise ValueError("Transformed document not found")
-    return doc.get("content", "")
+    return doc.get("text", "")
 
 
 def fetch_document_metadata(db, document_id: str) -> dict:
     # Fetch from Document Data Store's transformed_documents collection
-    doc = db.transformed_docs_col.find_one({"document_id": document_id})
+    doc = db.transformed_docs_col.find_one({"_id": document_id})
     if not doc:
         raise ValueError("Document metadata not found")
-    return doc.get("metadata", "")
+    return {
+        "url": doc.get("url", ""),
+        "type": doc.get("type", ""),
+        "text_length": doc.get("text_length", len(doc.get("text", "").split())),
+    }

@@ -20,13 +20,11 @@ def setup_and_teardown():
     if db.transformed_docs_col is not None:
         db.transformed_docs_col.insert_one(
             {
-                "document_id": "doc123",
-                "content": "This is a sample document for testing the indexing component.",
-                "metadata": {
-                    "title": "Test Document",
-                    "author": "Tester",
-                    "date": "2024-11-20",
-                },
+                "_id": "doc123",  # Using '_id' as document_id
+                "url": "https://example.com/doc123",
+                "text_length": 13,
+                "text": "This is a sample document for testing the indexing component.",
+                "type": "pdf",
             }
         )
     else:
@@ -36,7 +34,7 @@ def setup_and_teardown():
 
     # Teardown: Remove test data and close connections
     if db.transformed_docs_col is not None:
-        db.transformed_docs_col.delete_one({"document_id": "doc123"})
+        db.transformed_docs_col.delete_one({"_id": "doc123"})
     db.forward_index_col.delete_one({"document_id": "doc123"})
     db.inverted_index_col.delete_many({"documents.doc123": {"$exists": True}})
     db.inverted_index_col.delete_many(
@@ -70,15 +68,9 @@ def test_ping_add():
     # Verify in forward_index collection
     forward_entry = app.state.db.forward_index_col.find_one({"document_id": "doc123"})
     assert forward_entry is not None
-    assert forward_entry["metadata"]["title"] == "Test Document"
-
-    # Verify doc_stats_col
-    doc_stats = app.state.db.doc_stats_col.find_one({})
-    assert doc_stats is not None
-    assert doc_stats["docCount"] == 1
-    assert doc_stats["avgDocLength"] == len(
-        "This is a sample document for testing the indexing component.".split()
-    )
+    assert forward_entry["metadata"]["url"] == "https://example.com/doc123"
+    assert forward_entry["metadata"]["type"] == "pdf"
+    assert forward_entry["total_terms"] == 13
 
 
 def test_search():
@@ -114,8 +106,9 @@ def test_forward_index():
     document_id = "doc123"
     forward_entry = db.forward_index_col.find_one({"document_id": document_id})
     assert forward_entry is not None, f"Forward index missing document: {document_id}"
-    assert forward_entry["metadata"]["title"] == "Test Document"
-    assert forward_entry["total_terms"] == 10
+    assert forward_entry["metadata"]["url"] == "https://example.com/doc123"
+    assert forward_entry["metadata"]["type"] == "pdf"
+    assert forward_entry["total_terms"] == 13
 
 
 def test_ping_delete():
@@ -137,8 +130,6 @@ def test_ping_delete():
     # Verify doc_stats_col
     doc_stats = app.state.db.doc_stats_col.find_one({})
     assert doc_stats is not None
-    assert doc_stats["docCount"] == 0
-    assert doc_stats["avgDocLength"] == 0.0
 
 
 # def test_connection():

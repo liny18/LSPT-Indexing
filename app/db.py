@@ -40,7 +40,7 @@ class Database:
             DOC_STORE_DATABASE_NAME = os.getenv("DOC_STORE_DATABASE_NAME")
 
             # Connect to Indexing Component MongoDB
-            self.index_client = MongoClient(INDEX_DB_URI)
+            self.index_client = MongoClient(INDEX_DB_URI, serverSelectionTimeoutMS=5000)
             self.index_db = self.index_client[INDEX_DATABASE_NAME]
             self.forward_index_col = self.index_db["forward_index"]
             self.inverted_index_col = self.index_db["inverted_index"]
